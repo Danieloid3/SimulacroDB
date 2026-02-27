@@ -1,3 +1,4 @@
+// javascript
 // src/services/adminService.js
 import { pool } from '../config/db.js';
 import { readFile } from 'fs/promises';
@@ -22,18 +23,35 @@ export const migrateData = async () => {
 export const syncMongo = async () => {
     console.log('🔄 Iniciando sincronización masiva a Mongo...');
 
-    // 1. Obtener todos los IDs de pacientes de Postgres
     const patientIds = await patientService.getAllPatientIds();
+    console.log(`👥 Pacientes encontrados en Postgres: ${patientIds.length}`);
 
     let count = 0;
-    // 2. Iterar y actualizar en Mongo uno por uno
+    const sampleHistories = [];
+
     for (const id of patientIds) {
         const fullHistory = await patientService.getFullPatientHistory(id);
+
+        console.log(`➡️ Leyendo historial de paciente ${id} desde Postgres...`);
+        console.log(JSON.stringify(fullHistory, null, 2));
+
         if (fullHistory) {
             await upsertPatientHistory(fullHistory);
             count++;
+
+            // Guardar solo algunos ejemplos para la respuesta HTTP
+            if (sampleHistories.length < 3) {
+                sampleHistories.push(fullHistory);
+            }
         }
     }
 
-    return { message: `Sincronización completada. ${count} pacientes actualizados en MongoDB.` };
+    console.log(`✅ Sincronización completada. ${count} pacientes actualizados en MongoDB.`);
+
+    return {
+        message: `Sincronización completada. ${count} pacientes actualizados en MongoDB.`,
+        totalPatientsInPostgres: patientIds.length,
+        updatedInMongo: count,
+        sample: sampleHistories
+    };
 };
